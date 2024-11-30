@@ -8,6 +8,10 @@ kubectl apply -n argocd -f install.yaml
 ```
 
 ```sh
+kubectl port-forward svc/argocd-server  8080:443
+```
+
+```sh
 kubectl -n argocd get secret argocd-initial-admin-secret -o jsonpath="{.data.password}" | base64 -d | pbcopy
 ```
 
