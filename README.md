@@ -8,7 +8,7 @@ kubectl apply -n argocd -f install.yaml
 ```
 
 ```sh
-kubectl port-forward svc/argocd-server  8080:443
+kubectl port-forward svc/argocd-server 8080:443
 ```
 
 ```sh
