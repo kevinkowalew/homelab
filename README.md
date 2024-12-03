@@ -16,9 +16,11 @@ kubectl -n argocd get secret argocd-initial-admin-secret -o jsonpath="{.data.pas
 ```
 
 ```sh
-kubectl patch crd/applications.argoproj.io -p '{"metadata":{"finalizers":[]}}' --type=merge
+kubectl apply -f argo-cd/app.yaml -n argocd
 ```
 
+# Troubleshooting
+If `crd/applications.argoproj.io` gets stuck during deletion run this command:
 ```sh
-kubectl apply -f argo-cd/app.yaml -n argocd
+kubectl patch crd/applications.argoproj.io -p '{"metadata":{"finalizers":[]}}' --type=merge
 ```
