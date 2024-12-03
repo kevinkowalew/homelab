@@ -1,0 +1,8 @@
+kube-prometheus-stack:
+  prometheus:
+    enabled: true
+  alertmanager:
+    enabled: true
+  grafana:
+    adminPassword: my-secure-password
+
