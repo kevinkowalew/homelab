@@ -1,0 +1,2 @@
+mountPath: "/mnt/data/grafana"
+storage: 1Gi

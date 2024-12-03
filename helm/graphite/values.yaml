@@ -1,0 +1,2 @@
+mountPath: "/mnt/data/graphite"
+storage: 1Gi

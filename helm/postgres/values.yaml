@@ -1,0 +1,6 @@
+databaseName: postgresdb
+databaseUser: admin
+databasePassword: password
+mountPath: "/mnt/data/postgres"
+storage: 1Gi
+port: 5432
