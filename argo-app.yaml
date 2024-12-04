@@ -7,14 +7,12 @@ spec:
   project: default
   source:
     repoURL: https://github.com/kevinkowalew/argo-homelab
-    targetRevision: HEAD
     path: helm
-    directory:
-      recurse: true
+    targetRevision: HEAD
   destination:
     server: https://kubernetes.default.svc
     namespace: homelab
   syncPolicy:
-    automated:
-      prune: false
-      selfHeal: false
+    automated: {}
+    syncOptions:
+    - CreateNamespace=true
