@@ -1,0 +1,157 @@
+apiVersion: argoproj.io/v1alpha1
+kind: WorkflowTemplate
+metadata:
+  name: go-ci-template
+  namespace: argo
+  uid: bb945531-d1c1-4fae-ab6c-b0fcb626bc64
+  resourceVersion: '348747'
+  generation: 2
+  creationTimestamp: '2024-12-08T05:58:45Z'
+  labels:
+    workflows.argoproj.io/creator: system-serviceaccount-argo-argo-server
+  managedFields:
+    - manager: argo
+      operation: Update
+      apiVersion: argoproj.io/v1alpha1
+      time: '2024-12-08T06:01:07Z'
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:metadata:
+          f:labels:
+            .: {}
+            f:workflows.argoproj.io/creator: {}
+        f:spec: {}
+spec:
+  templates:
+    - name: go-ci
+      inputs:
+        parameters:
+          - name: repo
+          - name: workdir
+          - name: registry
+          - name: version
+          - name: imageName
+      outputs: {}
+      metadata: {}
+      steps:
+        - - name: build
+            template: build
+            arguments:
+              parameters:
+                - name: repo
+                  value: '{{inputs.parameters.repo}}'
+                - name: workdir
+                  value: '{{inputs.parameters.workdir}}'
+        - - name: test
+            template: test
+            arguments:
+              parameters:
+                - name: workdir
+                  value: '{{inputs.parameters.workdir}}'
+        - - name: publish
+            template: publish
+            arguments:
+              parameters:
+                - name: workdir
+                  value: '{{inputs.parameters.workdir}}'
+                - name: registry
+                  value: '{{inputs.parameters.registry}}'
+                - name: version
+                  value: '{{inputs.parameters.version}}'
+                - name: imageName
+                  value: '{{inputs.parameters.imageName}}'
+    - name: build
+      inputs:
+        parameters:
+          - name: repo
+          - name: workdir
+        artifacts:
+          - name: code
+            path: '{{inputs.parameters.workdir}}'
+            git:
+              repo: '{{inputs.parameters.repo}}'
+              usernameSecret:
+                name: git-creds
+                key: username
+              passwordSecret:
+                name: git-creds
+                key: password
+      outputs: {}
+      metadata: {}
+      container:
+        name: ''
+        image: golang:1.19
+        command:
+          - sh
+          - '-c'
+        args:
+          - ' cd {{inputs.parameters.workdir}} && go build -o api . '
+        resources: {}
+        volumeMounts:
+          - name: workdir
+            mountPath: /go
+    - name: test
+      inputs:
+        parameters:
+          - name: workdir
+      outputs: {}
+      metadata: {}
+      container:
+        name: ''
+        image: golang:1.19
+        command:
+          - sh
+          - '-c'
+        args:
+          - ' cd {{inputs.parameters.workdir}}; go test ./... '
+        resources: {}
+        volumeMounts:
+          - name: workdir
+            mountPath: /go
+    - name: publish
+      inputs:
+        parameters:
+          - name: workdir
+          - name: registry
+          - name: version
+          - name: imageName
+      outputs: {}
+      metadata: {}
+      container:
+        name: ''
+        image: gcr.io/kaniko-project/executor:latest
+        args:
+          - '--context={{inputs.parameters.workdir}}'
+          - '--dockerfile={{inputs.parameters.workdir}}/Dockerfile'
+          - >-
+            --destination={{inputs.parameters.registry}}/{{inputs.parameters.imageName}}:{{inputs.parameters.version}}
+          - '--insecure'
+        resources: {}
+        volumeMounts:
+          - name: workdir
+            mountPath: /go
+  entrypoint: go-ci
+  arguments:
+    parameters:
+      - name: repo
+        value: https://github.com/kevinkowalew/go-api.git
+      - name: workdir
+        value: /go/src/github.com/kevinkowalew/go-api
+      - name: version
+        value: 0.3.1
+      - name: imageName
+        value: go-api
+      - name: registry
+        value: docker-registry:5000
+  volumeClaimTemplates:
+    - metadata:
+        name: workdir
+        creationTimestamp: null
+      spec:
+        accessModes:
+          - ReadWriteOnce
+        resources:
+          requests:
+            storage: 1Gi
+      status: {}
+
