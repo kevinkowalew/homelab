@@ -1,6 +1,4 @@
 # Home Lab 
-
-## Intent
 This repo contains everything used to provision and manage my homelab Kubernetes cluster:
 - Infrastructure as Code (IaC) for provisioning  for provisioning vanilla `raspberry pi`s into `k3s` control plane nodes
 - `GitOps` CI/CD pipeline for managing `go` services
