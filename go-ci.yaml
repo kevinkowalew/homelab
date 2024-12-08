@@ -72,8 +72,14 @@ spec:
         path: "{{inputs.parameters.workdir}}"
         git:
           repo: "{{inputs.parameters.repo}}"
+          usernameSecret:
+            name: git-creds
+            key: username
+          passwordSecret:
+            name: git-creds
+            key: password
     container:
-      image: golang:1.8
+      image: golang:1.19
       command: [sh, -c]
       args: ["
         cd {{inputs.parameters.workdir}} &&
@@ -88,7 +94,7 @@ spec:
       parameters:
         - name: workdir
     container:
-      image: golang:1.8
+      image: golang:1.19
       command: [sh, -c]
       args: ["
         cd {{inputs.parameters.workdir}};
