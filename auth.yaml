@@ -1,0 +1,61 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: global-config
+data:
+  DATABASE_HOST: "homelab-postgresql"
+  DATABASE_USER: "postgres"
+  DATABASE_PORT: "5432"
+  DATABASE_PASSWORD: "password"
+  DATABASE_NAME: "postgres"
+  GRAPHITE_ADDR: "homelab-graphite:2003"
+  METRICS_PREFIX: "auth"
+  AUTH_SERVER_SECRET: "my-secret"
+  AUTH_SERVER_ACCESS_TOKEN_EXPIRATION: "84600"
+  AUTH_SERVER_REFRESH_TOKEN_EXPIRATION: "84600"
+  SWAGGER_UI_FILEPATH: "/etc/swaggerui"
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: auth-server
+  labels:
+    app: auth-server
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: auth-server
+  template:
+    metadata:
+      labels:
+        app: auth-server
+    spec:
+      volumes:
+        - name: swaggerui-claim
+          persistentVolumeClaim:
+            claimName: swaggerui
+      containers:
+      - name: auth-server
+        image: 10.43.128.172/auth-server:0.0.2
+        envFrom:
+        - configMapRef:
+            name: global-config
+        ports:
+        - containerPort: 8080
+        volumeMounts:
+        - mountPath: "/etc/swaggerui"
+          name: swaggerui-claim
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: auth-server
+spec:
+  selector:
+    app: auth-server
+  ports:
+    - protocol: TCP
+      port: 8080
+      targetPort: 8080
+  type: ClusterIP

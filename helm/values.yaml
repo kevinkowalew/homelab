@@ -1,8 +1,24 @@
-kube-prometheus-stack:
-  prometheus:
-    enabled: true
-  alertmanager:
-    enabled: true
-  grafana:
-    adminPassword: my-secure-password
-
+grafana:
+  adminPassword: "my-secure-password"
+postgresql:
+  postgresql:
+    user: "postgres"
+    port: "5432"
+    password: "password"
+    name: "postgres"
+  persistence:
+    size: "1Gi"
+graphite:
+  url: "homelab-graphite"
+  persistence:
+    size: 1Gi
+auth:
+  secret: "my-secret"
+  token:
+    expiration: "86400"
+  metrics:
+    prefix: "auth"
+  swagger:
+    url: "homelab-swagger"
+registry:
+  url: "10.43.128.172"
