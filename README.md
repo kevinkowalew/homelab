@@ -10,5 +10,4 @@ This repo contains everything used to provision and manage my Kubernetes homelab
 - [ ] move datastores & monitoring into a dedicated `helm` chart & namespace
 - [ ] create a microservices
 - [ ] figure out where a UI can fill in operational gaps to make the UX pleasant
-
-- you can put the Pods behind Services and use Service DNS for communication. Calls to service-name allow Pods in the same namespace to communicate. Calls to service-name.namespace allow Pods in different namespaces to communicate.
+- [ ] figure out cross-namespace communication
