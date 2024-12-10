@@ -10,8 +10,8 @@ install-argo:
 	  "--auth-mode=server"
 	]}]'
 install-ci-pipeline:
-	k apply -f github-ci-template.yaml
+	k apply -f ci.yaml
 delete-ci-pipeline:
-	k delete -f github-ci-template.yaml
+	k delete -f ci.yaml
 
 
