@@ -2,40 +2,11 @@
 - `argo workflows` power CI in my cluster.
 
 ## Inputs
-| Name                                        | Description                                                                                                                                                                                 | Example                                                                                  |
-| ------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------- |
-| repo
-
-version
-
-registry
-
-image
-
-build
-
-test | <br>
-
-github repository you wish to target
-
-image version
-
-docker registry
-
-base image to use for build, lint and test steps
-
-command used for build step
-
-command used for test step
-
-<br> | kevinkowalew/go-api
-
-0.0.1
-
-registry:5000
-
-golang:1.23
-
-go build -o api .
-
-go test ./... |
+| Name     | Description                                              | Example Value        |
+| -------- | -------------------------------------------------------- | -------------------- |
+| repo     | github repository you wish to target                     | kevinkowalew/go-api  |
+| version  | artifact verison you wish to push                        | 0.0.1                |
+| registry | docker registry address                                  | docker-registry:5000 |
+| image    | base image to use for build, lint & test step containers | golang:1.19          |
+| test     | shell command to use in build step                       | go build -o api .    |
+| build    | shell command to use in test step                        | go build ./...       |
