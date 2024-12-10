@@ -6,7 +6,6 @@ This repo contains everything used to provision and manage my Kubernetes homelab
 - Monitoring Stack for tracking cluster & service health
 
 # TODO
-- [ ] update CI template to take these parameters: `repo`, `username`, `version`
 - [ ] move datastores & monitoring into a dedicated `helm` chart & namespace
 - [ ] create a microservices helm chart
 - [ ] figure out where a UI can fill in operational gaps to make the UX pleasant
