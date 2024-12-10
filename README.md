@@ -11,3 +11,9 @@ This repo contains everything used to provision and manage my Kubernetes homelab
 - [ ] create a microservices helm chart
 - [ ] figure out where a UI can fill in operational gaps to make the UX pleasant
 - [ ] figure out cross-namespace communication
+
+# UX Planning
+- Github Login
+    -
+- CI Setup
+    -

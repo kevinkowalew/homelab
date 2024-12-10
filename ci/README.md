@@ -1,6 +1,9 @@
 # CI
 - `argo workflows` power CI in my cluster.
 
+## Web App UI UX Plan
+-
+
 ## Inputs
 | Name     | Description                                              | Example Value        |
 | -------- | -------------------------------------------------------- | -------------------- |
