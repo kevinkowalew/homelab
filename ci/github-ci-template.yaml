@@ -1,7 +1,7 @@
 apiVersion: argoproj.io/v1alpha1
 kind: WorkflowTemplate
 metadata:
-  name: go-ci-template
+  name: github-ci-template
   namespace: argo
   uid: bb945531-d1c1-4fae-ab6c-b0fcb626bc64
   resourceVersion: '348747'
