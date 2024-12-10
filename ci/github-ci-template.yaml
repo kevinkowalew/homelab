@@ -27,10 +27,10 @@ spec:
       inputs:
         parameters:
           - name: repo
-          - name: workdir
           - name: registry
           - name: version
-          - name: imageName
+          - name: build
+          - name: test
       outputs: {}
       metadata: {}
       steps:
@@ -40,36 +40,41 @@ spec:
               parameters:
                 - name: repo
                   value: '{{inputs.parameters.repo}}'
-                - name: workdir
-                  value: '{{inputs.parameters.workdir}}'
+                - name: image
+                  value: '{{inputs.parameters.image}}'
+                - name: build
+                  value: '{{inputs.parameters.build}}'
         - - name: test
             template: test
             arguments:
               parameters:
-                - name: workdir
-                  value: '{{inputs.parameters.workdir}}'
+                - name: repo
+                  value: '{{inputs.parameters.repo}}'
+                - name: image
+                  value: '{{inputs.parameters.image}}'
+                - name: test
+                  value: '{{inputs.parameters.test}}'
         - - name: publish
             template: publish
             arguments:
               parameters:
-                - name: workdir
-                  value: '{{inputs.parameters.workdir}}'
+                - name: repo
+                  value: '{{inputs.parameters.repo}}'
                 - name: registry
                   value: '{{inputs.parameters.registry}}'
                 - name: version
                   value: '{{inputs.parameters.version}}'
-                - name: imageName
-                  value: '{{inputs.parameters.imageName}}'
     - name: build
       inputs:
         parameters:
           - name: repo
-          - name: workdir
+          - name: build
+          - name: image
         artifacts:
           - name: code
-            path: '{{inputs.parameters.workdir}}'
+            path: '/workdir/{{inputs.parameters.repo}}'
             git:
-              repo: '{{inputs.parameters.repo}}'
+              repo: 'https://github.com/{{inputs.parameters.repo}}.git'
               usernameSecret:
                 name: git-creds
                 key: username
@@ -80,69 +85,71 @@ spec:
       metadata: {}
       container:
         name: ''
-        image: golang:1.19
+        image: {{inputs.parameters.image}}
         command:
           - sh
           - '-c'
         args:
-          - ' cd {{inputs.parameters.workdir}} && go build -o api . '
+          - ' cd /workdir/{{inputs.parameters.repo}} && {{inputs.parameters.build}}'
         resources: {}
         volumeMounts:
           - name: workdir
-            mountPath: /go
+            mountPath: /workdir
     - name: test
       inputs:
         parameters:
-          - name: workdir
+          - name: repo
+          - name: test
+          - name: image
       outputs: {}
       metadata: {}
       container:
         name: ''
-        image: golang:1.19
+        image: {{inputs.parameters.image}}
         command:
           - sh
           - '-c'
         args:
-          - ' cd {{inputs.parameters.workdir}}; go test ./... '
+          - 'cd /workdir/{{inputs.parameters.repo}}; {{inputs.parameters.test}}'
         resources: {}
         volumeMounts:
           - name: workdir
-            mountPath: /go
+            mountPath: /workdir
     - name: publish
       inputs:
         parameters:
-          - name: workdir
+          - name: repo
           - name: registry
           - name: version
-          - name: imageName
       outputs: {}
       metadata: {}
       container:
         name: ''
         image: gcr.io/kaniko-project/executor:latest
         args:
-          - '--context={{inputs.parameters.workdir}}'
-          - '--dockerfile={{inputs.parameters.workdir}}/Dockerfile'
-          - >-
-            --destination={{inputs.parameters.registry}}/{{inputs.parameters.imageName}}:{{inputs.parameters.version}}
+          - '--context=/workdir/{{inputs.parameters.repo}}'
+          - '--dockerfile=/workdir/{{inputs.parameters.repo}}/Dockerfile'
+          - '--destination={{inputs.parameters.registry}}/{{inputs.parameters.repo}}:{{inputs.parameters.version}}'
           - '--insecure'
         resources: {}
         volumeMounts:
           - name: workdir
-            mountPath: /go
+            mountPath: /workdir
   entrypoint: go-ci
   arguments:
     parameters:
       - name: repo
-        value: https://github.com/kevinkowalew/go-api.git
-      - name: workdir
-        value: /go/src/github.com/kevinkowalew/go-api
+        value: kevinkowalew/auth-server
       - name: version
-        value: 0.3.1
-      - name: imageName
-        value: go-api
+        value: 0.0.3
       - name: registry
         value: docker-registry:5000
+      - name: build
+        value: go build -o auth-server .
+      - name: test
+        value: go test ./...
+      - name: image
+        value: golang:1.19
   volumeClaimTemplates:
     - metadata:
         name: workdir

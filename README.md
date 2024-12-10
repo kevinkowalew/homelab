@@ -8,6 +8,10 @@ This repo contains everything used to provision and manage my Kubernetes homelab
 # TODO
 - [ ] update CI template to take these parameters: `repo`, `username`, `version`
 - [ ] move datastores & monitoring into a dedicated `helm` chart & namespace
-- [ ] create a microservices
+- [ ] create a microservices helm chart
 - [ ] figure out where a UI can fill in operational gaps to make the UX pleasant
 - [ ] figure out cross-namespace communication
+
+# Current Flows
+- Source code lives in repos
+- 
