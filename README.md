@@ -7,7 +7,5 @@ This repo contains everything used to provision and manage my Kubernetes homelab
 
 # TODO
 - [ ] move datastores & monitoring into a dedicated `helm` chart & namespace
-- [ ] create a microservices helm chart
-- [ ] figure out where a UI can fill in operational gaps to make the UX pleasant
+- [ ] create a generic microservices helm chart
 - [ ] figure out cross-namespace communication
-- [ ] figure out how to coordinate  registry/monitoring deployments with CI/CD setup

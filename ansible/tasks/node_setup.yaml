@@ -1,0 +1,29 @@
+- name: Update apt packages
+  apt:
+    update_cache: yes
+    upgrade: yes
+
+- name: Install injected packages
+  package:
+    name: "{{ packages }}"
+    state: latest
+
+- name: Disable SSH password auth
+  lineinfile:
+    dest: /etc/ssh/sshd_config
+    regexp: "^#PassswordAuthentication yes"
+    line: "PasswordAuthentication no"
+  register: sshd_config
+
+- name: Restart SSH daemon
+  service:
+    name: sshd
+    state: restarted
+  when: sshd_config.changed
+
+- name: Enable passwordless sudo for ""{ username }""
+  lineinfile:
+    dest: /etc/sudoers
+    regexp: "^%wheel"
+    line: "{{ username }} ALL=(ALL) NOPASSWD: ALL"
+    validate: "/usr/sbin/visudo -cf %s"

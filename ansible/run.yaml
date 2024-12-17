@@ -1,0 +1,23 @@
+- hosts: all
+  become: yes
+
+  tasks:
+    - import_tasks: tasks/node_setup.yaml
+      tags:
+         - node_setup
+
+- hosts: master
+  become: yes
+
+  tasks:
+    - import_tasks: tasks/install_docker.yaml
+      tags: 
+        - install_docker
+
+- hosts: all
+  become: yes
+
+  tasks:
+    - import_tasks: tasks/configure_k3s.yaml
+      tags:
+        - configure_k3s

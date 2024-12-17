@@ -1,0 +1,19 @@
+---
+- name: Create directory /etc/rancher/k3s
+  file:
+    path: /etc/rancher/k3s
+    state: directory
+    mode: '0755'
+
+- name: Create a YAML file with example content
+  ansible.builtin.copy:
+    dest: /etc/rancher/k3s/registries.yaml
+    content: |
+      mirrors:
+        "{{ registry }}":
+          endpoint:
+            - "{{ registry }}:5000"
+    owner: pi
+    group: pi
+    mode: '0644'
+

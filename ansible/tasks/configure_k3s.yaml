@@ -1,0 +1,32 @@
+- name: Create directory /etc/rancher/k3s
+  file:
+    path: /etc/rancher/k3s
+    state: directory
+    mode: '0755'
+
+- name: Create a YAML file with example content
+  ansible.builtin.copy:
+    dest: /etc/rancher/k3s/registries.yaml
+    content: |
+      mirrors:
+        "{{ registry }}:5000":
+          endpoint:
+            - "http://{{ registry }}:5000"
+    owner: pi
+    group: pi
+    mode: '0644'
+
+- name: Restart k3s service on master node
+  ansible.builtin.systemd:
+    name: k3s
+    state: restarted
+    enabled: yes
+  when: inventory_hostname == "master"
+
+- name: Restart k3s-agent service on worker nodes
+  ansible.builtin.systemd:
+    name: k3s-agent
+    state: restarted
+    enabled: yes
+  when: inventory_hostname != "master"
+

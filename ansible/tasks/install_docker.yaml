@@ -1,0 +1,36 @@
+- name: Download Docker installation script
+  ansible.builtin.get_url:
+    url: https://get.docker.com
+    dest: /tmp/get-docker.sh
+    mode: '0755'
+
+- name: Run Docker installation script
+  ansible.builtin.shell: /tmp/get-docker.sh
+
+- name: Add user to Docker group
+  ansible.builtin.user:
+    name: pit
+    groups: docker
+    append: yes
+
+- name: Create Docker configuration directory
+  ansible.builtin.file:
+    path: /etc/docker
+    state: directory
+    mode: '0755'
+
+- name: Create Docker daemon.json file
+  ansible.builtin.copy:
+    dest: /etc/docker/daemon.json
+    content: |
+      {
+        "insecure-registries": ["{{ registry }}:5000"]
+      }
+    mode: '0644'
+
+- name: Restart Docker service
+  ansible.builtin.systemd:
+    name: docker
+    state: restarted
+    enabled: yes
+

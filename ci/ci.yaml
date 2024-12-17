@@ -29,8 +29,8 @@ spec:
           - name: repo
           - name: registry
           - name: version
-          - name: build
-          - name: test
+          - name: image
+            value: '{{=split(workflow.parameters.repo, "/")[1]}}'
       outputs: {}
       metadata: {}
       steps:
@@ -42,8 +42,6 @@ spec:
                   value: '{{inputs.parameters.repo}}'
                 - name: image
                   value: '{{inputs.parameters.image}}'
-                - name: build
-                  value: '{{inputs.parameters.build}}'
         - - name: test
             template: test
             arguments:
@@ -52,8 +50,6 @@ spec:
                   value: '{{inputs.parameters.repo}}'
                 - name: image
                   value: '{{inputs.parameters.image}}'
-                - name: test
-                  value: '{{inputs.parameters.test}}'
         - - name: publish
             template: publish
             arguments:
@@ -68,7 +64,6 @@ spec:
       inputs:
         parameters:
           - name: repo
-          - name: build
           - name: image
         artifacts:
           - name: code
@@ -85,12 +80,12 @@ spec:
       metadata: {}
       container:
         name: ''
-        image: {{inputs.parameters.image}}
+        image: '{{inputs.parameters.image}}'
         command:
           - sh
           - '-c'
         args:
-          - ' cd /workdir/{{inputs.parameters.repo}} && {{inputs.parameters.build}}'
+          - 'cd /workdir/{{inputs.parameters.repo}} && make build'
         resources: {}
         volumeMounts:
           - name: workdir
@@ -99,18 +94,17 @@ spec:
       inputs:
         parameters:
           - name: repo
-          - name: test
           - name: image
       outputs: {}
       metadata: {}
       container:
         name: ''
-        image: {{inputs.parameters.image}}
+        image: '{{inputs.parameters.image}}'
         command:
           - sh
           - '-c'
         args:
-          - 'cd /workdir/{{inputs.parameters.repo}}; {{inputs.parameters.test}}'
+          - 'cd /workdir/{{inputs.parameters.repo}}; make test'
         resources: {}
         volumeMounts:
           - name: workdir
@@ -143,11 +137,7 @@ spec:
       - name: version
         value: 0.0.3
       - name: registry
-        value: docker-registry:5000
-      - name: build
-        value: go build -o auth-server .
-      - name: test
-        value: go test ./...
+        value: homelab-docker-registry:5000
       - name: image
         value: golang:1.19
   volumeClaimTemplates:
