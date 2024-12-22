@@ -13,12 +13,13 @@ kubectl apply -f cd/app.yaml -n argocd
 kubectl create namespace argo --dry-run=client -o yaml | kubectl apply -f -
 kubectl apply -n argo -f https://github.com/argoproj/argo-workflows/releases/download/v3.4.4/install.yaml
 kubectl patch deployment argo-server -n argo --type='json' -p='[{"op": "replace", "path": "/spec/template/spec/containers/0/args", "value": [ "server", "--auth-mode=server" ]}]'
-kubectl apply -f ci/ci.yaml
+kubectl apply -f ci/ci.yaml -n argo
 
 # install monitoring
-kubectl create namespace homelab --dry-run=client -o yaml | kubectl apply -f -
-helm upgrade --install homelab helm --values=helm/values.yaml -n homelab
+helm upgrade --install homelab helm --values=helm/values.yaml -n argo
 
 # configure K3s nodes for insecure docker registry
 IP=$(kubectl get svc | grep docker-registry | awk '{print($3)}')
 run_ansible_task "configure_k3s"
+
+kubectl apply -f services/auth.yaml

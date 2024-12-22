@@ -37,7 +37,7 @@ spec:
             claimName: swaggerui
       containers:
       - name: auth-server
-        image: 10.43.149.28:5000/kevinkowalew/auth-server:0.0.1
+        image: 10.43.149.28:5000/kevinkowalew/apigateway:0.0.1
         envFrom:
         - configMapRef:
             name: global-config

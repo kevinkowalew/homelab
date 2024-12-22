@@ -30,7 +30,6 @@ spec:
           - name: registry
           - name: version
           - name: image
-            value: '{{=split(workflow.parameters.repo, "/")[1]}}'
       outputs: {}
       metadata: {}
       steps:
