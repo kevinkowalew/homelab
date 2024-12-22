@@ -1,5 +1,19 @@
 package argo
 
+import (
+	"bytes"
+	"context"
+	"crypto/tls"
+	"encoding/json"
+	"errors"
+	"fmt"
+	"io"
+	"net/http"
+	"poller/internal/poller"
+	"strings"
+	"time"
+)
+
 type Client struct {
 	host string
 }
@@ -8,8 +22,7 @@ func NewClient(host string) *Client {
 	return &Client{host}
 }
 
-/*
-func (c Client) CreateJob(name string) error {
+func (c Client) CreateBuild(ctx context.Context, repo poller.Repository, build poller.Build) error {
 	type (
 		Metadata struct {
 			Name      string            `json:"name"`
@@ -47,6 +60,7 @@ func (c Client) CreateJob(name string) error {
 		}
 	)
 
+	name := fmt.Sprintf("%s-%s-%s", repo.Owner, repo.Name, build.Tag())
 	body := Body{
 		Workflow: &Workflow{
 			ApiVersion: "argoproj.io/v1alpha1",
@@ -61,8 +75,8 @@ func (c Client) CreateJob(name string) error {
 			Spec: Spec{
 				Arguments: Arguments{
 					Parameters: []Parameter{
-						{"repo", "kevinkowalew/auth-server"},
-						{"version", "0.0.3"},
+						{"repo", fmt.Sprintf("%s/%s", repo.Owner, repo.Name)},
+						{"version", build.Tag()},
 						{"registry", "homelab-docker-registry:5000"},
 						{"image", "golang:1.19"},
 					},
@@ -75,29 +89,86 @@ func (c Client) CreateJob(name string) error {
 	}
 
 	url := "https://localhost:2746/api/v1/workflows/argo"
-	ctx := context.Background()
 	_, err := execute[any](ctx, http.MethodPost, url, "", body)
 	return err
 }
 
-func getArgoJobStatus(jobName string) error {
+func (c Client) GetCIBuildStatus(ctx context.Context, repo poller.Repository, build poller.Build) (poller.CIBuildState, error) {
 	type response struct {
 		Status struct {
 			Phase string `json:"phase"`
 		} `json:"phase"`
 	}
-	url := "https://localhost:2746/api/v1/workflows/argo/" + jobName
-	ctx := context.Background()
-	_, err := execute[response](ctx, http.MethodPost, url, "", nil)
+	name := fmt.Sprintf("%s-%s-%s", repo.Owner, repo.Name, build.Tag())
+	url := "https://localhost:2746/api/v1/workflows/argo/" + name
+	res, err := execute[response](ctx, http.MethodGet, url, "", nil)
 	if err != nil {
-		panic(err)
+		if strings.HasPrefix(err.Error(), "404 Not Found:") {
+			return poller.NotStarted, nil
+		} else {
+			return "", err
+		}
 	}
 
-	return err
-
-	// possible job states
-	// "Running"
-	// "Failed"
-	// "Succeeded"
+	switch res.Status.Phase {
+	case "Running":
+		return poller.Running, nil
+	case "Failed":
+		return poller.Failed, nil
+	case "Succeeded":
+		return poller.Succeeded, nil
+	default:
+		return "", nil
+	}
 }
-*/
+
+func execute[T any](ctx context.Context, verb, url, token string, body any) (*T, error) {
+	var r io.Reader
+	if body != nil {
+		b, err := json.Marshal(body)
+		if err != nil {
+			return nil, fmt.Errorf("json.Marshal failed: %w", err)
+		}
+		r = bytes.NewBuffer(b)
+	}
+
+	reqCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
+	defer cancel()
+
+	req, err := http.NewRequestWithContext(reqCtx, verb, url, r)
+	if err != nil {
+		return nil, err
+	}
+
+	client := &http.Client{
+		Transport: &http.Transport{
+			TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
+		},
+	}
+	res, err := client.Do(req)
+	if err != nil {
+		return nil, err
+	}
+
+	defer res.Body.Close()
+	resBody, err := io.ReadAll(res.Body)
+	if err != nil {
+		return nil, err
+	}
+
+	if res.StatusCode < 200 || res.StatusCode > 299 {
+		msg := fmt.Sprintf("%s: %s", res.Status, body)
+		return nil, errors.New(msg)
+	}
+
+	var t *T
+	if string(resBody) == "" {
+		return nil, nil
+	}
+	err = json.Unmarshal(resBody, &t)
+	if err != nil {
+		fmt.Println("weird: " + err.Error())
+		return nil, err
+	}
+	return t, nil
+}

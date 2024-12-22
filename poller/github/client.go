@@ -3,7 +3,6 @@ package github
 import (
 	"bytes"
 	"context"
-	"crypto/tls"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -216,16 +215,9 @@ func execute[T any](ctx context.Context, verb, url, token string, body any) (*T,
 		return nil, err
 	}
 
-	if token != "" {
-		req.Header.Add("Authorization", "Bearer "+token)
-	}
+	req.Header.Add("Authorization", "Bearer "+token)
 
-	client := &http.Client{
-		Transport: &http.Transport{
-			TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
-		},
-	}
-	res, err := client.Do(req)
+	res, err := http.DefaultClient.Do(req)
 	if err != nil {
 		return nil, err
 	}

@@ -12,6 +12,11 @@ import (
 const (
 	Open   PRState = "open"
 	Closed PRState = "closed"
+
+	NotStarted CIBuildState = "NotStarted"
+	Running    CIBuildState = "Running"
+	Failed     CIBuildState = "Failed"
+	Succeeded  CIBuildState = "Succeeded"
 )
 
 type (
@@ -48,7 +53,10 @@ type (
 		GetPRCommits(context.Context, PR) ([]string, error)
 	}
 
-	CI interface {
+	CIBuildState string
+	CI           interface {
+		GetCIBuildStatus(context.Context, Repository, Build) (CIBuildState, error)
+		CreateBuild(context.Context, Repository, Build) error
 	}
 )
 
@@ -74,11 +82,23 @@ func (p Poller) Run(ctx context.Context) error {
 		targets, err := p.generateTargets(ctx, repo)
 		if err != nil {
 			p.logger.Error(err, "failed to generate build targets", "repo_owner", repo.Owner, "repo_name", repo.Name)
+			continue
 		}
 
 		for _, target := range targets {
-			fmt.Println(target.sha)
-			fmt.Println(target.Tag())
+			status, err := p.ci.GetCIBuildStatus(ctx, repo, target)
+			if err != nil {
+				p.logger.Error(err, "ci.GetCIBuildStatus failed", "tag", target.Tag())
+				continue
+			}
+
+			if status == NotStarted {
+				if err := p.ci.CreateBuild(ctx, repo, target); err != nil {
+					p.logger.Error(err, "ci.CreateBuild failed", "tag", target.Tag())
+				}
+			} else if status == Running {
+				p.logger.Info("Skipping CI build as it's already running.", "tag", target.Tag())
+			}
 		}
 	}
 
