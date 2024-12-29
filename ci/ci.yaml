@@ -3,24 +3,6 @@ kind: WorkflowTemplate
 metadata:
   name: github-ci-template
   namespace: argo
-  uid: bb945531-d1c1-4fae-ab6c-b0fcb626bc64
-  resourceVersion: '348747'
-  generation: 2
-  creationTimestamp: '2024-12-08T05:58:45Z'
-  labels:
-    workflows.argoproj.io/creator: system-serviceaccount-argo-argo-server
-  managedFields:
-    - manager: argo
-      operation: Update
-      apiVersion: argoproj.io/v1alpha1
-      time: '2024-12-08T06:01:07Z'
-      fieldsType: FieldsV1
-      fieldsV1:
-        f:metadata:
-          f:labels:
-            .: {}
-            f:workflows.argoproj.io/creator: {}
-        f:spec: {}
 spec:
   templates:
     - name: go-ci
@@ -30,8 +12,8 @@ spec:
           - name: registry
           - name: version
           - name: image
-      outputs: {}
-      metadata: {}
+          - name: revision
+          - name: email
       steps:
         - - name: build
             template: build
@@ -41,6 +23,8 @@ spec:
                   value: '{{inputs.parameters.repo}}'
                 - name: image
                   value: '{{inputs.parameters.image}}'
+                - name: revision
+                  value: '{{inputs.parameters.revision}}'
         - - name: test
             template: test
             arguments:
@@ -59,33 +43,43 @@ spec:
                   value: '{{inputs.parameters.registry}}'
                 - name: version
                   value: '{{inputs.parameters.version}}'
+        - - name: tag
+            template: tag
+            arguments:
+              parameters:
+                - name: repo
+                  value: '{{inputs.parameters.repo}}'
+                - name: version
+                  value: '{{inputs.parameters.version}}'
+                - name: revision
+                  value: '{{inputs.parameters.revision}}'
+                - name: email
+                  value: '{{inputs.parameters.email}}'
     - name: build
       inputs:
         parameters:
           - name: repo
           - name: image
+          - name: revision
         artifacts:
           - name: code
             path: '/workdir/{{inputs.parameters.repo}}'
             git:
               repo: 'https://github.com/{{inputs.parameters.repo}}.git'
+              revision: '{{inputs.parameters.revision}}'
               usernameSecret:
                 name: git-creds
                 key: username
               passwordSecret:
                 name: git-creds
                 key: password
-      outputs: {}
-      metadata: {}
       container:
-        name: ''
         image: '{{inputs.parameters.image}}'
         command:
           - sh
           - '-c'
         args:
           - 'cd /workdir/{{inputs.parameters.repo}} && make build'
-        resources: {}
         volumeMounts:
           - name: workdir
             mountPath: /workdir
@@ -94,17 +88,13 @@ spec:
         parameters:
           - name: repo
           - name: image
-      outputs: {}
-      metadata: {}
       container:
-        name: ''
         image: '{{inputs.parameters.image}}'
         command:
           - sh
           - '-c'
         args:
           - 'cd /workdir/{{inputs.parameters.repo}}; make test'
-        resources: {}
         volumeMounts:
           - name: workdir
             mountPath: /workdir
@@ -114,20 +104,46 @@ spec:
           - name: repo
           - name: registry
           - name: version
-      outputs: {}
-      metadata: {}
       container:
-        name: ''
         image: gcr.io/kaniko-project/executor:latest
         args:
           - '--context=/workdir/{{inputs.parameters.repo}}'
           - '--dockerfile=/workdir/{{inputs.parameters.repo}}/Dockerfile'
           - '--destination={{inputs.parameters.registry}}/{{inputs.parameters.repo}}:{{inputs.parameters.version}}'
           - '--insecure'
-        resources: {}
         volumeMounts:
           - name: workdir
             mountPath: /workdir
+    - name: tag
+      inputs:
+        parameters:
+          - name: repo
+          - name: version
+          - name: revision
+          - name: email
+      container:
+        image: alpine/git:latest
+        command: [sh, -c]
+        args:
+          - |
+            set -e
+            git config --global user.name "${GIT_USERNAME}"
+            git config --global user.email "{{inputs.parameters.email}}"
+            git clone "https://${GIT_USERNAME}:${GIT_TOKEN}@github.com/{{inputs.parameters.repo}}.git" repo
+            cd repo
+            git tag -a "{{inputs.parameters.version}}" "{{inputs.parameters.revision}}" -m "Tagging commit {{inputs.parameters.revision}} as {{inputs.parameters.version}}"
+            git push origin "{{inputs.parameters.version}}"
+        env:
+          - name: GIT_USERNAME
+            valueFrom:
+              secretKeyRef:
+                name: git-creds
+                key: username
+          - name: GIT_TOKEN
+            valueFrom:
+              secretKeyRef:
+                name: git-creds
+                key: password
   entrypoint: go-ci
   arguments:
     parameters:
@@ -139,15 +155,16 @@ spec:
         value: homelab-docker-registry:5000
       - name: image
         value: golang:1.19
+      - name: revision
+        value: commit-hash-sha
+      - name: email
+        value: john.doe@gmail.com
   volumeClaimTemplates:
     - metadata:
         name: workdir
-        creationTimestamp: null
       spec:
         accessModes:
           - ReadWriteOnce
         resources:
           requests:
             storage: 1Gi
-      status: {}
-

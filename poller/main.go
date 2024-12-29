@@ -15,10 +15,11 @@ func main() {
 		os.Getenv("GITHUB_USERNAME"),
 	)
 
-	argo := argo.NewClient("https://localhost:2746")
+	argoHost := "https://localhost:2746"
+	argo := argo.NewClient(argoHost)
 	l := logging.New()
 
-	p := poller.NewPoller(l, gh, argo, "#release")
+	p := poller.NewPoller(l, gh, argo, "#release", argoHost)
 
 	ctx := context.Background()
 	if err := p.Run(ctx); err != nil {

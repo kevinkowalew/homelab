@@ -52,7 +52,6 @@ func (l *Logger) log(msg, level string, il *log.Logger, fields ...interface{}) {
 			createFieldsString(l.fields...),
 			createFieldsString(fields))
 		il.Printf("[%s] [%s] \"%s\" %s", date, level, msg, combinedFields)
-
 	} else {
 		il.Printf("[%s] [%s] \"%s\" %s", date, level, msg, createFieldsString(fields))
 	}

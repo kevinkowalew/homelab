@@ -13,15 +13,6 @@ import (
 	"time"
 )
 
-type (
-	TagRef struct {
-		Ref    string `json:"ref"`
-		Object struct {
-			SHA string `json:"sha"`
-		} `json:"object"`
-	}
-)
-
 type Client struct {
 	token, username string
 }
@@ -53,10 +44,11 @@ func (c Client) GetRepos(ctx context.Context) ([]poller.Repository, error) {
 
 func (c Client) GetPRs(ctx context.Context, repo poller.Repository) ([]poller.PR, error) {
 	type pr struct {
-		Number int    `json:"number"`
-		Body   string `json:"body"`
-		State  string `json:"state"`
-		Head   struct {
+		Number   int        `json:"number"`
+		Body     string     `json:"body"`
+		State    string     `json:"state"`
+		ClosedAt *time.Time `json:"closed_at"`
+		Head     struct {
 			SHA  string `json:"sha"`
 			Repo struct {
 				DefaultBranch string `json:"default_branch"`
@@ -77,11 +69,11 @@ func (c Client) GetPRs(ctx context.Context, repo poller.Repository) ([]poller.PR
 	rv := make([]poller.PR, 0)
 	for _, pr := range *prs {
 		normalized := poller.PR{
-			Parent:       repo,
 			Number:       pr.Number,
 			Description:  pr.Body,
 			MergeSHA:     pr.MergeCommitSHA,
 			TargetBranch: pr.Head.Repo.DefaultBranch,
+			ClosedAt:     pr.ClosedAt,
 		}
 
 		if pr.State == "open" {
@@ -99,10 +91,7 @@ func (c Client) GetTags(ctx context.Context, repo poller.Repository) ([]poller.T
 	type tag struct {
 		Name   string `json:"name"`
 		Commit struct {
-			SHA       string `json:"sha"`
-			Committer struct {
-				Date time.Time `json:"date"`
-			} `json:"committer"`
+			SHA string `json:"sha"`
 		} `json:"commit"`
 	}
 
@@ -115,9 +104,8 @@ func (c Client) GetTags(ctx context.Context, repo poller.Repository) ([]poller.T
 	rv := make([]poller.Tag, 0)
 	for _, tag := range *tags {
 		rv = append(rv, poller.Tag{
-			Value:     tag.Name,
-			SHA:       tag.Commit.SHA,
-			Timestamp: tag.Commit.Committer.Date,
+			Value: tag.Name,
+			SHA:   tag.Commit.SHA,
 		})
 	}
 
@@ -153,16 +141,62 @@ func (c Client) GetPRCommits(ctx context.Context, pr poller.PR) ([]string, error
 	return rv, nil
 }
 
-func (c Client) PushStatusCheck(ctx context.Context, name, sha, state, description, context string) error {
+func (c Client) PushStatusCheck(ctx context.Context, owner, repo, sha, state, description, context, targetURL string) error {
 	body := struct {
 		State       string `json:"state"`
 		Description string `json:"description"`
 		Context     string `json:"context"`
-	}{state, description, context}
+		TargetURL   string `json:"target_url"`
+	}{state, description, context, targetURL}
 
-	url := fmt.Sprintf("https://api.github.com/repos/%s/statuses/%s", name, sha)
+	url := fmt.Sprintf("https://api.github.com/repos/%s/%s/statuses/%s", owner, repo, sha)
 	_, err := execute[any](ctx, http.MethodPost, url, c.token, body)
 	return err
+}
+
+func (c Client) GetStatusChecks(ctx context.Context, repo poller.Repository, sha string) ([]poller.PRStatusCheck, error) {
+	type (
+		status struct {
+			URL         string `json:"url"`
+			State       string `json:"state"`
+			Description string `json:"description"`
+			Context     string `json:"context"`
+			TargetURL   string `json:"target_url"`
+		}
+		response struct {
+			State    string   `json:"state"`
+			Statuses []status `json:"statuses"`
+		}
+	)
+
+	url := fmt.Sprintf("https://api.github.com/repos/%s/%s/commits/%s/status", repo.Owner, repo.Name, sha)
+	res, err := execute[response](ctx, http.MethodGet, url, c.token, nil)
+	if err != nil {
+		return nil, err
+	}
+
+	rv := make([]poller.PRStatusCheck, 0)
+	for _, status := range res.Statuses {
+		normalized := poller.PRStatusCheck{
+			URL:         status.URL,
+			Description: status.Description,
+			Context:     status.Context,
+			TargetURL:   status.TargetURL,
+		}
+
+		switch status.State {
+		case "error":
+		case "failure":
+			normalized.State = poller.Failure
+		case "pending":
+			normalized.State = poller.Pending
+		case "success":
+			normalized.State = poller.Success
+		}
+
+		rv = append(rv, normalized)
+	}
+	return rv, err
 }
 
 func (c Client) CreateTag(ctx context.Context, name, commit, tag string) error {
@@ -239,7 +273,6 @@ func execute[T any](ctx context.Context, verb, url, token string, body any) (*T,
 	}
 	err = json.Unmarshal(resBody, &t)
 	if err != nil {
-		fmt.Println("weird: " + err.Error())
 		return nil, err
 	}
 	return t, nil

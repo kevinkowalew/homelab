@@ -10,7 +10,6 @@ import (
 	"io"
 	"net/http"
 	"poller/internal/poller"
-	"strings"
 	"time"
 )
 
@@ -22,7 +21,7 @@ func NewClient(host string) *Client {
 	return &Client{host}
 }
 
-func (c Client) CreateBuild(ctx context.Context, repo poller.Repository, build poller.Build) error {
+func (c Client) CreateBuild(ctx context.Context, owner, repo, tag, sha, email string) error {
 	type (
 		Metadata struct {
 			Name      string            `json:"name"`
@@ -60,13 +59,13 @@ func (c Client) CreateBuild(ctx context.Context, repo poller.Repository, build p
 		}
 	)
 
-	name := fmt.Sprintf("%s-%s-%s", repo.Owner, repo.Name, build.Tag())
+	workflowName := fmt.Sprintf("%s-%s-%s", owner, repo, tag)
 	body := Body{
 		Workflow: &Workflow{
 			ApiVersion: "argoproj.io/v1alpha1",
 			Kind:       "workflow",
 			Metadata: Metadata{
-				Name:      name,
+				Name:      workflowName,
 				Namespace: "argo",
 				Labels: map[string]string{
 					"workflows.argoproj.io/workflow-template": "github-ci-template",
@@ -75,10 +74,12 @@ func (c Client) CreateBuild(ctx context.Context, repo poller.Repository, build p
 			Spec: Spec{
 				Arguments: Arguments{
 					Parameters: []Parameter{
-						{"repo", fmt.Sprintf("%s/%s", repo.Owner, repo.Name)},
-						{"version", build.Tag()},
+						{"repo", fmt.Sprintf("%s/%s", owner, repo)},
+						{"version", tag},
 						{"registry", "homelab-docker-registry:5000"},
 						{"image", "golang:1.19"},
+						{"revision", sha},
+						{"email", email},
 					},
 				},
 				WorkflowTemplateRef: WorkflowTemplateRef{
@@ -88,38 +89,71 @@ func (c Client) CreateBuild(ctx context.Context, repo poller.Repository, build p
 		},
 	}
 
-	url := "https://localhost:2746/api/v1/workflows/argo"
+	url := fmt.Sprintf("%s/api/v1/workflows/argo", c.host)
 	_, err := execute[any](ctx, http.MethodPost, url, "", body)
 	return err
 }
 
-func (c Client) GetCIBuildStatus(ctx context.Context, repo poller.Repository, build poller.Build) (poller.CIBuildState, error) {
-	type response struct {
-		Status struct {
-			Phase string `json:"phase"`
-		} `json:"phase"`
-	}
-	name := fmt.Sprintf("%s-%s-%s", repo.Owner, repo.Name, build.Tag())
-	url := "https://localhost:2746/api/v1/workflows/argo/" + name
+func (c Client) GetCIBuilds(ctx context.Context) ([]poller.CIBuild, error) {
+	type (
+		Item struct {
+			Spec struct {
+				Arguments struct {
+					Parameters []struct {
+						Name  string `json:"name"`
+						Value string `json:"value"`
+					} `json:"parameters"`
+				} `json:"arguments"`
+			} `json:"spec"`
+			Status struct {
+				Phase string `json:"phase"`
+			} `json:"status"`
+		}
+		response struct {
+			Items []Item `json:"items"`
+		}
+	)
+
+	url := fmt.Sprintf("%s/api/v1/workflows/argo", c.host)
 	res, err := execute[response](ctx, http.MethodGet, url, "", nil)
 	if err != nil {
-		if strings.HasPrefix(err.Error(), "404 Not Found:") {
-			return poller.NotStarted, nil
-		} else {
-			return "", err
-		}
+		return nil, err
 	}
 
-	switch res.Status.Phase {
-	case "Running":
-		return poller.Running, nil
-	case "Failed":
-		return poller.Failed, nil
-	case "Succeeded":
-		return poller.Succeeded, nil
-	default:
-		return "", nil
+	rv := make([]poller.CIBuild, 0)
+	for _, wf := range res.Items {
+		get := func(i Item, key string) string {
+			for _, param := range i.Spec.Arguments.Parameters {
+				if param.Name == key {
+					return param.Value
+				}
+			}
+
+			return ""
+		}
+
+		normalized := poller.CIBuild{
+			SHA: get(wf, "revision"),
+		}
+
+		switch wf.Status.Phase {
+		case "Running":
+			normalized.State = poller.Running
+		case "Failed":
+			normalized.State = poller.Failed
+		case "Succeeded":
+			normalized.State = poller.Succeeded
+		}
+
+		version, err := poller.NewVersion(get(wf, "version"))
+		if err != nil {
+			return nil, err
+		}
+		normalized.Version = *version
+		rv = append(rv, normalized)
 	}
+
+	return rv, nil
 }
 
 func execute[T any](ctx context.Context, verb, url, token string, body any) (*T, error) {
@@ -167,7 +201,6 @@ func execute[T any](ctx context.Context, verb, url, token string, body any) (*T,
 	}
 	err = json.Unmarshal(resBody, &t)
 	if err != nil {
-		fmt.Println("weird: " + err.Error())
 		return nil, err
 	}
 	return t, nil
