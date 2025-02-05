@@ -2,7 +2,7 @@
 
 This repo contains everything used to provision and manage my Kubernetes homelab:
 - Infrastructure as Code (IaC) for provisioning vanilla `raspberry pi`s into `k3s` control plane nodes
-- `GitOps` CI/CD pipeline for managing `go` services
+- `GitOps` CI/CD pipeline for managing services
 - Monitoring Stack for tracking cluster & service health
 
 # TODO
