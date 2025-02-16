@@ -6,7 +6,7 @@ metadata:
 spec:
   project: default
   source:
-    repoURL: https://github.com/kevinkowalew/argo-homelab
+    repoURL: https://github.com/kevinkowalew/homelab
     path: helm
     targetRevision: HEAD
   destination:
