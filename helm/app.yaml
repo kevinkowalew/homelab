@@ -2,16 +2,16 @@ apiVersion: argoproj.io/v1alpha1
 kind: Application
 metadata:
   name: homelab
-  namespace: argocd
+  namespace: argo
 spec:
   project: default
   source:
-    repoURL: https://github.com/kevinkowalew/homelab
-    path: helm
+    repoURL: https://github.com/kevinkowalew/homelab-gitops
+    path: .
     targetRevision: HEAD
   destination:
     server: https://kubernetes.default.svc
-    namespace: homelab
+    namespace: prod
   syncPolicy:
     automated: {}
     syncOptions:

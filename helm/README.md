@@ -10,3 +10,10 @@
 | registry | docker registry address                                  | docker-registry:5000 |
 | revision | commit hash SHA you wish to build                        |                      |
 | image    | base image to use for build, lint & test step containers | golang:1.23          |
+
+# CD
+
+## Get Admin Password
+```sh
+kubectl -n argocd get secret argocd-initial-admin-secret -o jsonpath="{.data.password}" | base64 -d | pbcopy
+```

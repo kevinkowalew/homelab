@@ -1,4 +1,4 @@
-kubectl delete namespace argocd argo
-helm ls | grep homelab | awk '{print($1)}' | xargs helm delete
-kubectl delete -f services/auth.yaml -n homelab
-
+helm delete argo --namespace argo
+kubectl delete -f helm/app.yaml
+kubectl delete -f helm/ci-workflow.yaml
+kubectl delete -f helm/ci-secret.yaml

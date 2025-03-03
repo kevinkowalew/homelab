@@ -1,8 +1,8 @@
 # Ignore Helm's temporary and output files
 *.tgz
 *.lock
-chart.lock
-charts/
+helm/chart.lock
+helm/charts/
 
 # Ignore Kubernetes configuration files
 .kubeconfig
