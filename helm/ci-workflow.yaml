@@ -4,6 +4,7 @@ metadata:
   name: github-ci-template
   namespace: argo
 spec:
+  serviceAccountName: argo
   templates:
     - name: go-ci
       inputs:
@@ -131,8 +132,12 @@ spec:
             git config --global user.email "{{inputs.parameters.email}}"
             git clone "https://${GIT_USERNAME}:${GIT_TOKEN}@github.com/{{inputs.parameters.repo}}.git" repo
             cd repo
-            git tag -a "{{inputs.parameters.version}}" "{{inputs.parameters.revision}}" -m "Tagging commit {{inputs.parameters.revision}} as {{inputs.parameters.version}}"
-            git push origin "{{inputs.parameters.version}}"
+            if git rev-parse "{{inputs.parameters.version}}" >/dev/null 2>&1; then
+              echo "Tag {{inputs.parameters.version}} already exists. Skipping push."
+            else
+              git tag -a "{{inputs.parameters.version}}" "{{inputs.parameters.revision}}" -m "Tagging commit {{inputs.parameters.revision}} as {{inputs.parameters.version}}"
+              git push origin "{{inputs.parameters.version}}"
+            fi
         env:
           - name: GIT_USERNAME
             valueFrom:
