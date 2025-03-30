@@ -7,7 +7,18 @@ function run_ansible_task() {
 helm install argo --namespace argo --values ./helm/values.yaml --create-namespace ./helm
 kubectl apply -f helm/app.yaml
 kubectl apply -f helm/ci-workflow.yaml
-kubectl apply -f helm/ci-secret.yaml
+
+cat << EOF | kubectl apply -f -
+apiVersion: v1
+kind: Secret
+metadata:
+  name: git-creds
+  namespace: argo
+type: Opaque
+stringData:
+  username: ${GITHUB_USERNAME}
+  password: ${GITHUB_TOKEN}
+EOF
 
 # configure K3s nodes for insecure docker registry
 #IP=$(kubectl get svc | grep docker-registry | awk '{print($3)}')
