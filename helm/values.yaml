@@ -2,9 +2,14 @@ argo-cd:
   namespaceOverride: "argo"
   crds:
     install: true
+    keep: false
 argo-workflows:
-  namespaceOverride: "argo"
+  workflow:
+    serviceAccount:
+      create: true
+      name: "argo-workflow"
   crds:
     install: true
+    keep: false
   server:
     extraArgs: ["--auth-mode=server"]

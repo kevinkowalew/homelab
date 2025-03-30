@@ -4,7 +4,7 @@ metadata:
   name: github-ci-template
   namespace: argo
 spec:
-  serviceAccountName: argo
+  serviceAccountName: argo-workflow
   templates:
     - name: go-ci
       inputs:
