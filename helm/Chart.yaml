@@ -7,8 +7,11 @@ appVersion: "0.1.0"
 
 dependencies:
   - name: argo-cd
-    version: 7.8.7 
+    version: 7.8.15
     repository: https://argoproj.github.io/argo-helm
   - name: argo-workflows
-    version: 0.45.8          
+    version: 0.45.11 
     repository: https://argoproj.github.io/argo-helm
+  - name: docker-registry
+    version: 2.2.3
+    repository: https://helm.twun.io

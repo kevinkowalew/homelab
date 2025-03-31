@@ -13,3 +13,10 @@ argo-workflows:
     keep: false
   server:
     extraArgs: ["--auth-mode=server"]
+docker-registry:
+  persistence:
+    accessMode: 'ReadWriteOnce'
+    enabled: true
+    deleteEnabled: true
+    size: 10Gi
+    storageClass: 'local-path'
