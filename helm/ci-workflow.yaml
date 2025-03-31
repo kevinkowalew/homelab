@@ -1,3 +1,10 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+ name: synchronization-config
+data:
+  workflow: "10"  # only 10 workflow(s) can run at a time in a namespace
+---
 apiVersion: argoproj.io/v1alpha1
 kind: WorkflowTemplate
 metadata:
@@ -5,6 +12,11 @@ metadata:
   namespace: argo
 spec:
   serviceAccountName: argo-workflow
+  synchronization:
+    semaphores:
+      - configMapKeyRef:
+          name: synchronization-config
+          key: workflow
   templates:
     - name: go-ci
       inputs:
