@@ -9,9 +9,9 @@
     dest: /etc/rancher/k3s/registries.yaml
     content: |
       mirrors:
-        "{{ registry }}:5000":
+        "{{ registry }}":
           endpoint:
-            - "http://{{ registry }}:5000"
+            - "http://{{ registry }}"
     owner: pi
     group: pi
     mode: '0644'
