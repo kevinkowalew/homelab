@@ -7,7 +7,7 @@ while true; do
   sleep 2
 done
 
-kubectl port-forward -n argo svc/argo-argo-workflows-server 2746:2746 > /dev/null &
+kubectl port-forward -n argo svc/argo-argo-workflows-server 2746:2746 &
 PF_PID=$!
 
 for i in {1..10}; do
@@ -23,7 +23,7 @@ curl -X POST -H "Content-Type: application/json" localhost:2746/api/v1/workflows
     "apiVersion": "argoproj.io/v1alpha1",
     "kind": "workflow",
     "metadata": {
-      "name": "kevinkowalew-argo-pr-poller-v0.0.12",
+      "name": "kevinkowalew-argo-pr-poller-v0.0.13",
       "namespace": "argo",
       "labels": {
         "workflows.argoproj.io/workflow-template": "github-ci-template"
@@ -38,7 +38,7 @@ curl -X POST -H "Content-Type: application/json" localhost:2746/api/v1/workflows
           },
           {
             "name": "version",
-            "value": "v0.0.12"
+            "value": "v0.0.13"
           },
           {
             "name": "registry",
@@ -50,7 +50,7 @@ curl -X POST -H "Content-Type: application/json" localhost:2746/api/v1/workflows
           },
           {
             "name": "revision",
-            "value": "ad244a7638109395147adcbbc9146d979e2723e0"
+            "value": "5e7a8e456566cff3616f52d1ce25bb5aa62583b3"
           },
           {
             "name": "email",
@@ -67,7 +67,7 @@ curl -X POST -H "Content-Type: application/json" localhost:2746/api/v1/workflows
 EOF
 
 while true; do
-  PHASE=$(curl --silent http://localhost:2746/api/v1/workflows/argo | jq -r '.items[] | select(.metadata.name=="kevinkowalew-argo-pr-poller-v0.0.12") | .status.phase')
+  PHASE=$(curl --silent http://localhost:2746/api/v1/workflows/argo | jq -r '.items[] | select(.metadata.name=="kevinkowalew-argo-pr-poller-v0.0.13") | .status.phase')
 
   if [[ "$PHASE" == "Succeeded" || "$PHASE" == "Failed" ]]; then
     break

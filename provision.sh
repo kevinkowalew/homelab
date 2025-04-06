@@ -33,6 +33,7 @@ data:
   ARGO_CI_TRIGGER: "#release"
   REGISTRY_HOST: "http://argo-docker-registry:5000"
   GITHUB_STATUS_CHECK_CI_HOST: "https://localhost:2746"
+  VERSION_LOOKBACK: "0"
 ---
 apiVersion: batch/v1
 kind: CronJob
@@ -52,7 +53,7 @@ spec:
         spec:
           containers:
           - name: argo-pr-poller
-            image:  ${IP}/kevinkowalew/argo-pr-poller:v0.0.12
+            image:  ${IP}/kevinkowalew/argo-pr-poller:v0.0.13
             envFrom:
             - configMapRef:
                 name: argo-pr-poller
