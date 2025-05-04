@@ -1,10 +1,10 @@
 [homelab]
-master ansible_host={{master}} ansible_user=pi ansible_connection=ssh ansible_ssh_private_key_file=/Users/kevin/.ssh/homeserver
+master ansible_host={{master}} ansible_user=pi ansible_connection=ssh ansible_ssh_private_key_file=/Users/kevin/.ssh/id_ed25519
 
-worker_1 ansible_host={{worker_1}} ansible_user=pi ansible_connection=ssh ansible_ssh_private_key_file=/Users/kevin/.ssh/homeserver
+worker_1 ansible_host={{worker_1}} ansible_user=pi ansible_connection=ssh ansible_ssh_private_key_file=/Users/kevin/.ssh/id_ed25519
 
-worker_2 ansible_host={{worker_2}} ansible_user=pi ansible_connection=ssh ansible_ssh_private_key_file=/Users/kevin/.ssh/homeserver
+worker_2 ansible_host={{worker_2}} ansible_user=pi ansible_connection=ssh ansible_ssh_private_key_file=/Users/kevin/.ssh/id_ed25519
 
-worker_3 ansible_host={{worker_3}} ansible_user=pi ansible_connection=ssh ansible_ssh_private_key_file=/Users/kevin/.ssh/homeserver
+worker_3 ansible_host={{worker_3}} ansible_user=pi ansible_connection=ssh ansible_ssh_private_key_file=/Users/kevin/.ssh/id_ed25519
 
-worker_4 ansible_host={{worker_4}} ansible_user=pi ansible_connection=ssh ansible_ssh_private_key_file=/Users/kevin/.ssh/homeserver
+worker_4 ansible_host={{worker_4}} ansible_user=pi ansible_connection=ssh ansible_ssh_private_key_file=/Users/kevin/.ssh/id_ed25519
