@@ -1,3 +1,6 @@
+kubectl create namespace argo
+kubectl create namespace prod
+
 helm install argo --namespace argo --values ./helm/values.yaml --create-namespace ./helm
 kubectl apply -f helm/ci-workflow.yaml
 
