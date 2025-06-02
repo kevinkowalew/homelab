@@ -4,6 +4,8 @@ argo-cd:
     install: true
     keep: false
 argo-workflows:
+  artifactRepository:
+    archiveLogs: true
   workflow:
     serviceAccount:
       create: true
