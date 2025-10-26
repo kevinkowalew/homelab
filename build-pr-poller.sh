@@ -46,7 +46,7 @@ curl -X POST -H "Content-Type: application/json" localhost:2746/api/v1/workflows
           },
           {
             "name": "image",
-            "value": "golang:1.23"
+            "value": "golang:1.24"
           },
           {
             "name": "revision",
