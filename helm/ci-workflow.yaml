@@ -9,7 +9,7 @@ data:
 apiVersion: argoproj.io/v1alpha1
 kind: WorkflowTemplate
 metadata:
-  name: github-ci-template
+  name: gitea-ci-template
   namespace: argo
 spec:
   serviceAccountName: argo-workflow
@@ -22,19 +22,37 @@ spec:
     - name: go-ci
       inputs:
         parameters:
+          - name: url
           - name: repo
           - name: registry
           - name: version
           - name: image
           - name: revision
           - name: email
+          - name: context
       steps:
+        - - name: push-pending-gitea-status
+            template: gitea-status
+            arguments:
+              parameters:
+                - name: url
+                  value: '{{inputs.parameters.url}}'
+                - name: revision
+                  value: '{{inputs.parameters.revision}}'
+                - name: state
+                  value: "pending"
+                - name: context
+                  value: '{{inputs.parameters.context}}'
+                - name: description
+                  value: "Build in progress"
         - - name: build
             template: build
             arguments:
               parameters:
                 - name: repo
                   value: '{{inputs.parameters.repo}}'
+                - name: url
+                  value: '{{inputs.parameters.url}}'
                 - name: image
                   value: '{{inputs.parameters.image}}'
                 - name: revision
@@ -57,6 +75,8 @@ spec:
                   value: '{{inputs.parameters.registry}}'
                 - name: version
                   value: '{{inputs.parameters.version}}'
+                - name: url
+                  value: '{{inputs.parameters.url}}'
         - - name: tag
             template: tag
             arguments:
@@ -69,23 +89,78 @@ spec:
                   value: '{{inputs.parameters.revision}}'
                 - name: email
                   value: '{{inputs.parameters.email}}'
+                - name: url
+                  value: '{{inputs.parameters.url}}'
+        - - name: push-success-gitea-status
+            template: gitea-status
+            arguments:
+              parameters:
+                - name: url
+                  value: '{{inputs.parameters.url}}'
+                - name: revision
+                  value: '{{inputs.parameters.revision}}'
+                - name: state
+                  value: "success"
+                - name: description
+                  value: "Build finished"
+                - name: context
+                  value: '{{inputs.parameters.context}}'
+    - name: gitea-status
+      inputs:
+        parameters:
+          - name: url
+          - name: state
+          - name: revision
+          - name: context
+          - name: description
+      container:
+        image: curlimages/curl:8.7.1
+        command: [sh, -c]
+        env:
+          - name: GITEA_TOKEN
+            valueFrom:
+              secretKeyRef:
+                name: gitea-token
+                key: token
+        args:
+          - |
+            set -e
+            REPO_URL="{{inputs.parameters.url}}"
+            # Strip protocol (e.g. https://)
+            REPO_PATH=$(echo "$REPO_URL" | sed -E 's#https?://##')
+            HOST=$(echo "$REPO_PATH" | cut -d'/' -f1)
+            OWNER=$(echo "$REPO_PATH" | cut -d'/' -f2)
+            REPO=$(echo "$REPO_PATH" | cut -d'/' -f3)
+            API_URL="http://${HOST}/api/v1/repos/${OWNER}/${REPO}/statuses/{{inputs.parameters.revision}}"
+
+            curl -sSL -X POST \
+              -H "Authorization: token ${GITEA_TOKEN}" \
+              -H "Content-Type: application/json" \
+              "${API_URL}" \
+              -d "{
+                    \"state\": \"{{inputs.parameters.state}}\",
+                    \"context\": \"{{inputs.parameters.context}}\",
+                    \"description\": \"{{inputs.parameters.description}}\",
+                    \"target_url\": \"https://google.com\"
+                  }"
     - name: build
       inputs:
         parameters:
           - name: repo
           - name: image
           - name: revision
+          - name: url
         artifacts:
           - name: code
             path: '/workdir/{{inputs.parameters.repo}}'
             git:
-              repo: 'https://github.com/{{inputs.parameters.repo}}.git'
+              repo: '{{inputs.parameters.url}}'
               revision: '{{inputs.parameters.revision}}'
               usernameSecret:
-                name: git-creds
+                name: gitea-creds
                 key: username
               passwordSecret:
-                name: git-creds
+                name: gitea-creds
                 key: password
       container:
         image: '{{inputs.parameters.image}}'
@@ -135,6 +210,7 @@ spec:
           - name: version
           - name: revision
           - name: email
+          - name: url
       container:
         image: alpine/git:latest
         command: [sh, -c]
@@ -143,7 +219,9 @@ spec:
             set -e
             git config --global user.name "${GIT_USERNAME}"
             git config --global user.email "{{inputs.parameters.email}}"
-            git clone "https://${GIT_USERNAME}:${GIT_TOKEN}@github.com/{{inputs.parameters.repo}}.git" repo
+            TRIMMED_URL=$(echo {{inputs.parameters.url}} | cut -d / -f3-)
+            git clone "http://${GIT_USERNAME}:${GIT_TOKEN}@${TRIMMED_URL}" repo
+
             cd repo
             if git rev-parse "{{inputs.parameters.version}}" >/dev/null 2>&1; then
               echo "Tag {{inputs.parameters.version}} already exists. Skipping push."
@@ -155,16 +233,18 @@ spec:
           - name: GIT_USERNAME
             valueFrom:
               secretKeyRef:
-                name: git-creds
+                name: gitea-creds
                 key: username
           - name: GIT_TOKEN
             valueFrom:
               secretKeyRef:
-                name: git-creds
+                name: gitea-creds
                 key: password
   entrypoint: go-ci
   arguments:
     parameters:
+      - name: url
+        value: http://github.com/kevinkowalew/auth-server.git
       - name: repo
         value: kevinkowalew/auth-server
       - name: version
@@ -174,9 +254,11 @@ spec:
       - name: image
         value: golang:1.19
       - name: revision
-        value: commit-hash-sha
+        value: cf37c2655e74ff8e844510a3be6d05c368e2253e
       - name: email
         value: john.doe@gmail.com
+      - name: context
+        value: "Argo Workflow build succeeded"
   volumeClaimTemplates:
     - metadata:
         name: workdir
