@@ -130,7 +130,7 @@ spec:
             REPO_PATH=$(echo "$REPO_URL" | sed -E 's#https?://##')
             HOST=$(echo "$REPO_PATH" | cut -d'/' -f1)
             OWNER=$(echo "$REPO_PATH" | cut -d'/' -f2)
-            REPO=$(echo "$REPO_PATH" | cut -d'/' -f3)
+            REPO=$(echo "$REPO_PATH" | cut -d'/' -f3 | rev | cut -d"." -f2- | rev)
             API_URL="http://${HOST}/api/v1/repos/${OWNER}/${REPO}/statuses/{{inputs.parameters.revision}}"
 
             curl -sSL -X POST \
