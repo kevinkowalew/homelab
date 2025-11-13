@@ -1,0 +1,349 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+ name: synchronization-config
+ namespace: argo
+data:
+  workflow: "10"  # only 10 workflow(s) can run at a time in a namespace
+---
+apiVersion: argoproj.io/v1alpha1
+kind: WorkflowTemplate
+metadata:
+  name: gitea-ci-template
+  namespace: argo
+spec:
+  serviceAccountName: argo-workflow
+  synchronization:
+    semaphores:
+      - configMapKeyRef:
+          name: synchronization-config
+          key: workflow
+  templates:
+    - name: go-ci
+      inputs:
+        parameters:
+          - name: url
+          - name: owner
+          - name: repo
+          - name: head
+          - name: base
+          - name: registry
+          - name: version
+          - name: image
+          - name: sha
+          - name: email
+          - name: context
+          - name: token
+      steps:
+        - - name: push-pending-gitea-status
+            template: gitea-status
+            arguments:
+              parameters:
+                - name: url
+                  value: '{{inputs.parameters.url}}'
+                - name: sha
+                  value: '{{inputs.parameters.sha}}'
+                - name: state
+                  value: "pending"
+                - name: context
+                  value: '{{inputs.parameters.context}}'
+                - name: description
+                  value: "Build in progress"
+        - - name: build
+            template: build
+            arguments:
+              parameters:
+                - name: owner
+                  value: '{{inputs.parameters.owner}}'
+                - name: repo
+                  value: '{{inputs.parameters.repo}}'
+                - name: url
+                  value: '{{inputs.parameters.url}}'
+                - name: image
+                  value: '{{inputs.parameters.image}}'
+                - name: sha
+                  value: '{{inputs.parameters.sha}}'
+        - - name: test
+            template: test
+            arguments:
+              parameters:
+                - name: owner
+                  value: '{{inputs.parameters.owner}}'
+                - name: repo
+                  value: '{{inputs.parameters.repo}}'
+                - name: image
+                  value: '{{inputs.parameters.image}}'
+        - - name: publish
+            template: publish
+            arguments:
+              parameters:
+                - name: owner
+                  value: '{{inputs.parameters.owner}}'
+                - name: repo
+                  value: '{{inputs.parameters.repo}}'
+                - name: registry
+                  value: '{{inputs.parameters.registry}}'
+                - name: version
+                  value: '{{inputs.parameters.version}}'
+                - name: url
+                  value: '{{inputs.parameters.url}}'
+        - - name: tag
+            template: tag
+            arguments:
+              parameters:
+                - name: repo
+                  value: '{{inputs.parameters.repo}}'
+                - name: version
+                  value: '{{inputs.parameters.version}}'
+                - name: sha
+                  value: '{{inputs.parameters.sha}}'
+                - name: email
+                  value: '{{inputs.parameters.email}}'
+                - name: url
+                  value: '{{inputs.parameters.url}}'
+        - - name: push-success-gitea-status
+            template: gitea-status
+            arguments:
+              parameters:
+                - name: url
+                  value: '{{inputs.parameters.url}}'
+                - name: sha
+                  value: '{{inputs.parameters.sha}}'
+                - name: state
+                  value: "success"
+                - name: description
+                  value: "Build finished"
+                - name: context
+                  value: '{{inputs.parameters.context}}'
+        - - name: push-infraapi-webhook
+            template: infraapi-webhook
+            arguments:
+              parameters:
+                - name: owner
+                  value: '{{inputs.parameters.owner}}'
+                - name: repo
+                  value: '{{inputs.parameters.repo}}'
+                - name: head
+                  value: '{{inputs.parameters.head}}'
+                - name: base
+                  value: '{{inputs.parameters.base}}'
+                - name: url
+                  value: '{{inputs.parameters.url}}'
+                - name: sha
+                  value: '{{inputs.parameters.sha}}'
+                - name: version
+                  value: '{{inputs.parameters.version}}'
+                - name: token
+                  value: '{{inputs.parameters.token}}'
+    - name: gitea-status
+      inputs:
+        parameters:
+          - name: url
+          - name: state
+          - name: sha
+          - name: context
+          - name: description
+      container:
+        image: curlimages/curl:8.7.1
+        command: [sh, -c]
+        env:
+          - name: GITEA_TOKEN
+            valueFrom:
+              secretKeyRef:
+                name: gitea-token
+                key: token
+        args:
+          - |
+            set -e
+            REPO_URL="{{inputs.parameters.url}}"
+            REPO_PATH=$(echo "$REPO_URL" | sed -E 's#https?://##')
+            HOST=$(echo "$REPO_PATH" | cut -d'/' -f1)
+            OWNER=$(echo "$REPO_PATH" | cut -d'/' -f2)
+            REPO=$(echo "$REPO_PATH" | cut -d'/' -f3 | rev | cut -d"." -f2- | rev)
+            API_URL="http://${HOST}/api/v1/repos/${OWNER}/${REPO}/statuses/{{inputs.parameters.sha}}"
+
+            curl -sSL -X POST \
+              -H "Authorization: token ${GITEA_TOKEN}" \
+              -H "Content-Type: application/json" \
+              "${API_URL}" \
+              -d "{
+                    \"state\": \"{{inputs.parameters.state}}\",
+                    \"context\": \"{{inputs.parameters.context}}\",
+                    \"description\": \"{{inputs.parameters.description}}\",
+                    \"target_url\": \"https://google.com\"
+                  }"
+    - name: build
+      inputs:
+        parameters:
+          - name: owner
+          - name: repo
+          - name: image
+          - name: sha
+          - name: url
+        artifacts:
+          - name: code
+            path: '/workdir/{{inputs.parameters.owner}}/{{inputs.parameters.repo}}'
+            git:
+              repo: '{{inputs.parameters.url}}'
+              revision: '{{inputs.parameters.sha}}'
+              usernameSecret:
+                name: gitea-creds
+                key: username
+              passwordSecret:
+                name: gitea-creds
+                key: password
+      container:
+        env:
+          - name: GOMODCACHE
+            value: /workdir/.cache/gomod
+        image: '{{inputs.parameters.image}}'
+        command:
+          - sh
+          - '-c'
+        args:
+          - |
+            mkdir -p /workdir/.cache/gomod && \
+            cd /workdir/{{inputs.parameters.owner}}/{{inputs.parameters.repo}} && \
+            go env && \
+            go mod download && \
+            make build
+        volumeMounts:
+          - name: workdir
+            mountPath: /workdir
+    - name: test
+      inputs:
+        parameters:
+          - name: owner
+          - name: repo
+          - name: image
+      container:
+        image: '{{inputs.parameters.image}}'
+        env:
+          - name: GOMODCACHE
+            value: /workdir/.cache/gomod
+        command:
+          - sh
+          - '-c'
+        args:
+          - |
+            mkdir -p /workdir/.cache/gomod && \
+            cd /workdir/{{inputs.parameters.owner}}/{{inputs.parameters.repo}} && \
+            go env && \
+            go mod download && \
+            make test
+        volumeMounts:
+          - name: workdir
+            mountPath: /workdir
+    - name: publish
+      inputs:
+        parameters:
+          - name: owner
+          - name: repo
+          - name: registry
+          - name: version
+      container:
+        image: gcr.io/kaniko-project/executor:latest
+        env:
+          - name: GOMODCACHE
+            value: /workdir/.cache/gomod
+        args:
+          - '--context=/workdir/{{inputs.parameters.owner}}/{{inputs.parameters.repo}}'
+          - '--dockerfile=/workdir/{{inputs.parameters.owner}}/{{inputs.parameters.repo}}/Dockerfile'
+          - '--destination={{inputs.parameters.registry}}/{{inputs.parameters.owner}}/{{inputs.parameters.repo}}:{{inputs.parameters.version}}'
+          - '--insecure'
+        volumeMounts:
+          - name: workdir
+            mountPath: /workdir
+    - name: tag
+      inputs:
+        parameters:
+          - name: repo
+          - name: version
+          - name: sha
+          - name: email
+          - name: url
+      container:
+        image: alpine/git:latest
+        command: [sh, -c]
+        args:
+          - |
+            set -e
+            git config --global user.name "${GIT_USERNAME}"
+            git config --global user.email "{{inputs.parameters.email}}"
+            TRIMMED_URL=$(echo {{inputs.parameters.url}} | cut -d / -f3-)
+            git clone "http://${GIT_USERNAME}:${GIT_TOKEN}@${TRIMMED_URL}" repo
+
+            cd repo
+            if git rev-parse "{{inputs.parameters.version}}" >/dev/null 2>&1; then
+              echo "Tag {{inputs.parameters.version}} already exists. Skipping push."
+            else
+              git tag -a "{{inputs.parameters.version}}" "{{inputs.parameters.sha}}" -m "Tagging commit {{inputs.parameters.sha}} as {{inputs.parameters.version}}"
+              git push origin "{{inputs.parameters.version}}"
+            fi
+        env:
+          - name: GIT_USERNAME
+            valueFrom:
+              secretKeyRef:
+                name: gitea-creds
+                key: username
+          - name: GIT_TOKEN
+            valueFrom:
+              secretKeyRef:
+                name: gitea-creds
+                key: password
+    - name: infraapi-webhook
+      inputs:
+        parameters:
+          - name: url
+          - name: owner
+          - name: repo
+          - name: sha
+          - name: version
+          - name: token
+          - name: head
+          - name: base
+      container:
+        image: curlimages/curl:8.6.0
+        command: [sh, -c]
+        args:
+          - |
+            API_URL="http://apigateway.prod:8080/infraapi/ci/webhook"
+            TOKEN="{{inputs.parameters.token}}"
+            curl -sSL -X POST -H "Authorization:${TOKEN}" "${API_URL}" -d '{"url": "{{inputs.parameters.url}}","owner":"{{inputs.parameters.owner}}","repo": "{{inputs.parameters.repo}}", "version": "{{inputs.parameters.version}}", "sha": "{{inputs.parameters.sha}}", "head":"{{inputs.parameters.head}}","base":"{{inputs.parameters.base}}"}'
+  entrypoint: go-ci
+  arguments:
+    parameters:
+      - name: url
+        value: http://github.com/admin/infraapi.git
+      - name: owner
+        value: admin
+      - name: repo
+        value: infraapi
+      - name: version
+        value: v0.0.1
+      - name: registry
+        value: argo-docker-registry.argo:5000
+      - name: image
+        value: golang:1.24
+      - name: sha
+        value: cf37c2655e74ff8e844510a3be6d05c368e2253e
+      - name: email
+        value: kowalewski.ke@gmail.com
+      - name: context
+        value: "continuous-integration/argo"
+      - name: token
+        value: "InfraAPI webhook token"
+      - name: base
+        value: main
+      - name: head
+        value: pr-branch
+
+  volumeClaimTemplates:
+    - metadata:
+        name: workdir
+      spec:
+        accessModes:
+          - ReadWriteOnce
+        resources:
+          requests:
+            storage: 1Gi
